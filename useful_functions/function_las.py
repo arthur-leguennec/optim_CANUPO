@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-
-
-
 """
-LiDAR processing examples
-"""
+Created on Wed Oct 18 2017
 
+@author: Arthur Le Guennec
+"""
 
 from __future__ import division
 from laspy.file import File
@@ -20,6 +18,7 @@ import argparse
 def save_cloud(inFile, filename, keep_ind = [], features = {}):
     '''
     Save a point cloud in laz or las file
+    
     :params inFile: Base file object in laspy.
     :params filename: filename of the output.
     :params keep_ind: list of index to keep, if this parameter is empty , all 
@@ -245,9 +244,9 @@ def change_labelisation(inFile, labels_in=[], label_out=1, verbose=False):
     >> import numpy as np
     >> inFile = File("input.laz", mode = "r")
     >> change_labelisation(inFile, [3,4], 5) # According to the ISPRS notation,
-    >>                                       # this fucntion will put low and
-    >>                                       # medium vegatation in high
-    >>                                       # vegetation
+    >>                                       # this function will put low and
+    >>                                       # medium vegetation label in high
+    >>                                       # vegetation label
     '''
     if (verbose == True or verbose > 0):
         print("We change label " + str(labels_in) + " to " + str(label_out))
@@ -281,35 +280,6 @@ def load_las_file(name_dir_file):
     print('Loading file : ' + name_dir_file)
     inFile = File(name_dir_file, mode = "r")
     return inFile
-
-
-def rasterize_z(filename, option, step):
-    inFile = load_las_file(filename)
-    
-    cloud = np.vstack([inFile.x,
-                       inFile.y,
-                       inFile.z]).transpose()
-    
-    points = np.require(cloud, dtype=np.float64, requirements=['C', 'A'])
-    
-    coord = points[:, 0:3]
-    
-    ind = construct_grid(coord, option, step)
-    
-    save_cloud(inFile, 'output.laz', keed_ind=ind)    
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-filename')
-    parser.add_argument('-option')
-    parser.add_argument('-step')
-    
-    args = parser.parse_args()
-    
-        
-    rasterize_z(args.filename, args.option, float(args.step))
-    
     
     
     

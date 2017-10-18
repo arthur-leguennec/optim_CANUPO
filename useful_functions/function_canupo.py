@@ -1,39 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Oct 18 11:56:58 2017
+Created on Wed Oct 18 2017
 
 @author: Arthur Le Guennec
 """
 
-###########################################################
-###        STEP ONE                                     ###
-###   Script to rasterize las or laz file and train     ###
-###   a random forest to disting water surface to       ###
-###   ground to some stuff                              ###
-###########################################################
 
-## Goals:   - train a model with raster
-##          - find the best scale range to separe water, ground and the rest
-
-## Step:    1) load raster laz files
-##          2) load laz files
-##          3) compute descriptors on raster with the original file
-##          4) keep only ground and water surface points with a good confidence
-##             (like >= 0.9)
-
-from laspy.file import File
 from math import atan2
 from sklearn.neighbors import KDTree
-from function_las import *
 
 import numpy as np
 import scipy.linalg as la
-import pandas as pd
-
-
-
-import os
-import sys
 
 
 def compute_pca_for_corepoint(kdtree, 
@@ -185,7 +162,7 @@ def compute_feature_for_corepoint(kdtree,
     :params point: the point where we will compute features. Have to be a 
                    coordinate
     :params feature: numpy array of the concerned features
-    :params scales: list of desired scales (radius)
+    :params radius: size of desired neighborhood
     :params option: what kind of feature we want, by default it's the mean
                     (possibility: mean or std)
     :params verbose: Controls the verbosity of the function. False by default.
@@ -211,8 +188,8 @@ def compute_feature_for_corepoint(kdtree,
     >> points_C3 = np.require(cloud_C3, 
                               dtype=np.float64, 
                               requirements=['C', 'A'])
-    >> intensity_C2 = points_C2[:, 3]
-    >> intensity_C3 = points_C3[:, 3]
+    >> in_C2 = points_C2[:, 3]
+    >> in_C3 = points_C3[:, 3]
     >> coord_C2 = points_C2[:, 0:3]
     >> coord_C3 = points_C3[:, 0:3]
     >> kdtree_C2 = KDTree(coord_C2, leaf_size=40)
@@ -220,8 +197,8 @@ def compute_feature_for_corepoint(kdtree,
     >> kdtree
     >> scales_features = compute_feature_for_corepoint([kdtree_C2, kdtree_C3],
                                                        coord_C2[10, :],
-                                                       [intensity_C2, intensity_C3],
-                                                       [1, 2, 3])
+                                                       [in_C2, in_C3],
+                                                       radius=2)
     '''
     ind = []
     dist = []
@@ -272,65 +249,3 @@ def compute_feature_for_corepoint(kdtree,
     desc_all_scale = desc_one_scale
             
     return desc_all_scale
-
-
-
-def main():
-    dir_raster_in = "../../data/rasterized_tiles/"
-    dir_in = "../../data/labeled_tiles"
-    
-    scales = [0.25, 0.5, 1, 2, 2.5, 3, 4, 5, 6, 7]
-    
-    filenames_train_raster_C2 = ["tile_C2_868000_6524000_raster_2_5_low.laz",
-                                 "tile_C2_868000_6524500_raster_2_5_low.laz",
-                                 "tile_C2_868500_6523000_raster_2_5_low.laz",
-                                 "tile_C2_868500_6524000_raster_2_5_low.laz",
-                                 "tile_C2_869000_6523000_raster_2_5_low.laz",
-                                 "tile_C2_869000_6524000_raster_2_5_low.laz",
-                                 "tile_C2_869000_6525000_raster_2_5_low.laz",
-                                 "tile_C2_869500_6524500_raster_2_5_low.laz",
-                                 "tile_C2_869500_6525000_raster_2_5_low.laz"]
-    
-    filenames_train_C2 = ["tile_C2_868000_6524000.laz",
-                          "tile_C2_868000_6524500.laz",
-                          "tile_C2_868500_6523000.laz",
-                          "tile_C2_868500_6524000.laz",
-                          "tile_C2_869000_6523000.laz",
-                          "tile_C2_869000_6524000.laz",
-                          "tile_C2_869000_6525000.laz",
-                          "tile_C2_869500_6524500.laz",
-                          "tile_C2_869500_6525000.laz"]
-    
-    filenames_train_C3 = ["tile_C3_868000_6524000_raster_2_5_low.laz",
-                          "tile_C3_868000_6524500_raster_2_5_low.laz",
-                          "tile_C3_868500_6523000_raster_2_5_low.laz",
-                          "tile_C3_868500_6524000_raster_2_5_low.laz",
-                          "tile_C3_869000_6523000_raster_2_5_low.laz",
-                          "tile_C3_869000_6524000_raster_2_5_low.laz",
-                          "tile_C3_869000_6525000_raster_2_5_low.laz",
-                          "tile_C3_869500_6524500_raster_2_5_low.laz",
-                          "tile_C3_869500_6525000_raster_2_5_low.laz"]
-    
-    filename_test_C2 = ["tile_C2_869000_6523500_raster_2_5_low.laz"]
-    filename_test_C3 = ["tile_C3_869000_6523500_raster_2_5_low.laz"]
-    
-    for filename in filenames_train_C2:
-        inFile_C2 = load_las_file(dir_in + filename)
-        if (filename == filenames_train_C2[0]):
-            nam_feat = name_features.copy()
-
-            [foo, labels_train, column_names] = extract_features(inFile_C2, nam_feat, scales)
-            data_train = foo
-        else:
-            nam_feat = name_features.copy()
-            [foo, lab_tmp, column_names] = extract_features(inFile_C2, nam_feat, scales)
-            data_train = np.vstack([data_train, foo])
-            #foo = inFile_C2.classification
-            labels_train = np.concatenate([labels_train, lab_tmp])
-    
-    return
-
-
-
-if __name__ == "__main__":
-    main()
