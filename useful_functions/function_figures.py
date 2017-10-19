@@ -4,6 +4,8 @@ Created on Wed Oct 18 14:03:38 2017
 
 @author: Arthur Le Guennec
 """
+__all__ = ['plot_confusion_matrix', 'plot_feature_importance']
+
 
 import itertools
 import numpy as np

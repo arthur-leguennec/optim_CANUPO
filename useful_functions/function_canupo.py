@@ -5,6 +5,8 @@ Created on Wed Oct 18 2017
 @author: Arthur Le Guennec
 """
 
+__all__ = ['compute_pca_for_corepoint', 'compute_pca', 'compute_feature_for_corepoint']
+
 
 from math import atan2
 from sklearn.neighbors import KDTree

@@ -4,6 +4,9 @@ Created on Wed Oct 18 2017
 
 @author: Arthur Le Guennec
 """
+__all__ = ['save_cloud', 'extract_value', 'construct_grid', 'extract_feature',
+           'change_labelisation', 'load_las_file']
+
 
 from __future__ import division
 from laspy.file import File
@@ -12,7 +15,7 @@ import numpy as np
 #import scipy.interpolate
 import pandas as pd
 import copy
-import argparse
+#import argparse
 
 
 def save_cloud(inFile, filename, keep_ind = [], features = {}):
@@ -205,7 +208,8 @@ def extract_feature(inFile, name_feature):
                         label_out=18,
                         verbose=True)
 
-    #Modification des labels pour simplifier (ex: basse, moyenne et haute vegetation => classe vegetation)
+    #Modification des labels pour simplifier (ex: basse, moyenne et haute 
+    #vegetation => classe vegetation)
     ind_tmp = np.argwhere(label == 3)
     label[ind_tmp] = 5  # low vegetation to high vegetation
     ind_tmp = np.argwhere(label == 4)
@@ -280,6 +284,12 @@ def load_las_file(name_dir_file):
     print('Loading file : ' + name_dir_file)
     inFile = File(name_dir_file, mode = "r")
     return inFile
+    
+#def main():
+#    print("Hello world")
+#    
+#if __name__ == "__main__":
+#    main()
     
     
     

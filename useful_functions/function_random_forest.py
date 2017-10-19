@@ -4,6 +4,8 @@ Created on Wed Oct 18 14:02:19 2017
 
 @author: Arthur Le Guennec
 """
+__all__ = ['train_classifier', 'test_classifier']
+
 
 from sklearn.ensemble import RandomForestClassifier
 
