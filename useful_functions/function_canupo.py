@@ -13,6 +13,7 @@ from sklearn.neighbors import KDTree
 
 import numpy as np
 import scipy.linalg as la
+import copy
 
 
 def compute_pca_for_corepoint(kdtree, 
@@ -159,8 +160,7 @@ def compute_feature_for_corepoint(kdtree,
     Compute descriptors around one point with several scales. According to
     parameters, it's possible to used several point cloud (C2 and C3 here)
     
-    :params kdtree: KDTree computed with sklearn.neighbors. Can be a list of 
-                    KDTree (in case where we have several PC) or only one
+    :params kdtree: KDTree computed with sklearn.neighbors
     :params point: the point where we will compute features. Have to be a 
                    coordinate
     :params feature: numpy array of the concerned features
@@ -178,8 +178,7 @@ def compute_feature_for_corepoint(kdtree,
     >> inFile_C3 = File("input_C3.laz", mode = "r")
     >> cloud_C2 = np.vstack([inFile_C2.x,
                              inFile_C2.y,
-                             inFile_C2.z,
-                             inFile_C2.intensity]).transpose()
+                             inFile_C2.z]).transpose()
     >> cloud_C3 = np.vstack([inFile_C3.x,
                              inFile_C3.y,
                              inFile_C3.z,
@@ -190,64 +189,51 @@ def compute_feature_for_corepoint(kdtree,
     >> points_C3 = np.require(cloud_C3, 
                               dtype=np.float64, 
                               requirements=['C', 'A'])
-    >> in_C2 = points_C2[:, 3]
     >> in_C3 = points_C3[:, 3]
     >> coord_C2 = points_C2[:, 0:3]
     >> coord_C3 = points_C3[:, 0:3]
-    >> kdtree_C2 = KDTree(coord_C2, leaf_size=40)
     >> kdtree_C3 = KDTree(coord_C3, leaf_size=40)
     >> kdtree
-    >> scales_features = compute_feature_for_corepoint([kdtree_C2, kdtree_C3],
+    >> scales_features = compute_feature_for_corepoint(kdtree_C3,
                                                        coord_C2[10, :],
-                                                       [in_C2, in_C3],
-                                                       radius=2)
+                                                       in_C3,
+                                                       radius=2,
+                                                       option='std')
     '''
-    ind = []
-    dist = []
-    for i in range(len(kdtree)):
-        ind[i], dist[i] = kdtree[i].query_radius(point,
-                                                 radius,
-                                                 return_distance=True,
-                                                 sort_results=True)
-        
-        ind[i] = ind[i][0]
-        dist[i] = dist[i][0]
+
+    ind, dist = kdtree.query_radius(point,
+                                    radius,
+                                    return_distance=True,
+                                    sort_results=True)
+    
+    ind = ind[0]
+    dist = dist[0]
     
     feature_s = []
     feat = []
-    ind_in_radius = []
-    for i in range(len(kdtree)):
-        feature_s.append([])
-        # tmp is a list of indices of indices ...
-        tmp = np.argwhere(dist[i] < radius).reshape(-1)
-        ind_in_radius.append(ind[i][tmp])
+    
+    # tmp is a list of indices of indices ...
+    tmp = np.argwhere(dist < radius).reshape(-1)
+    ind_in_radius = ind[tmp]
     
     # How many points we have in the sphere ?
-    nb_pts_radius = 0
-    for ind in ind_in_radius:
-        nb_pts_radius = nb_pts_radius + len(ind)
+    nb_pts_radius = len(ind_in_radius)
+    
+    loc_feature = copy.copy(feature)
+    loc_feature = loc_feature[ind_in_radius]
     
     if (option == 'mean'):
-        for i in range(len(feature_s)):
-            if (nb_pts_radius <= 3):
-                feat.append(np.mean(feature, dtype='f'))
-            else:
-                feat.append(np.NAN)
-    elif (option == 'std'):
-        for i in range(len(feature_s)):
-            if (nb_pts_radius <= 3):
-                feat.append(np.std(feature, dtype='f'))
-            else:
-                feat.append(np.NAN)
-    
-    for i in range(len(feature_s)):
-        feature_s[i].append(feat)
-        if (i == 0):
-            desc_one_scale = feature_s[i]
+        if (nb_pts_radius <= 3):
+            feat = np.mean(loc_feature, dtype='f')
         else:
-            desc_one_scale = np.vstack([desc_one_scale,
-                                        feature_s[i]]).transpose()
-
-    desc_all_scale = desc_one_scale
+            feat = np.NAN
+    elif (option == 'std'):
+        if (nb_pts_radius <= 3):
+            feat = np.std(loc_feature, dtype='f')
+        else:
+            feat = np.NAN
+    
+    feature_s.append(feat)
+    desc_one_scale = feature_s
             
-    return desc_all_scale
+    return desc_one_scale
