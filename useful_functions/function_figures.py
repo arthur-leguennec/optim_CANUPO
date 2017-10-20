@@ -19,16 +19,16 @@ def plot_confusion_matrix(cm, classes,
                           normalize=False,
                           title='Confusion matrix',
                           cmap=plt.cm.Blues):
-    """
-    This function prints and plots the confusion matrix.
+    """This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
     
-    :params cm: confusion matrix
-    :params classes: name of classes used
-    :params mormalize: if True, result will be normalized (useful if classes 
+    Args: 
+        cm: confusion matrix
+        classes: name of classes used
+        mormalize: if True, result will be normalized (useful if classes 
                        are very unbalanced). By default, normalize=False
-    :params title: Title of plot
-    :params cmap: Color range (by default, blue)
+        title: Title of plot
+        cmap: Color range (by default, blue)
     """
     if normalize:
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
@@ -63,14 +63,14 @@ def plot_confusion_matrix(cm, classes,
 
 def plot_feature_importance(feat_imp, column_names, indices=[],
                             title='Features importances'):
-    """
-    This function prints and plots the features importances.
+    """This function prints and plots the features importances.
     
-    :params feat_imp: List of feature importances
-    :params column_names: Name of features
-    :params indices: Desired order of features importance. 
+    Args:
+        feat_imp: List of feature importances
+        column_names: Name of features
+        indices: Desired order of features importance. 
                      By default indices=[]
-    :params title: Title of plot
+        title: Title of plot
     """
 
     if (indices == []):

@@ -17,12 +17,12 @@ plt.rcParams['svg.fonttype'] = 'none'
 
 
 def train_classifier(data, labels, verbose=True):
-    """
-    Train the classifier
+    """Train the classifier
     
-    :params data: data X
-    :params labels: data Y
-    :params verbose: Controls the verbosity of the function.
+    Args:
+        data: data X
+        labels: data Y
+        verbose: Controls the verbosity of the function.
     """
     
     if (verbose == True):
@@ -44,13 +44,13 @@ def train_classifier(data, labels, verbose=True):
 
 
 def test_classifier(model, data, labels=[]):
-    """
-    Test the classifier. If the parameter labels=[], then value of error rate 
+    """Test the classifier. If the parameter labels=[], then value of error rate 
     or mean confidence will not return.
     
-    :params model: trained random forest
-    :params data: data X
-    :params labels: true label if it's possible.
+    Args:
+        model: trained random forest
+        data: data X
+        labels: true label if it's possible.
     """
     
     labels_predict = model.predict(data)

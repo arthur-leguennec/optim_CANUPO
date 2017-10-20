@@ -8,7 +8,6 @@ __all__ = ['save_cloud', 'extract_value', 'construct_grid', 'extract_feature',
            'change_labelisation', 'load_las_file']
 
 
-from __future__ import division
 from laspy.file import File
 
 import numpy as np
@@ -19,24 +18,23 @@ import copy
 
 
 def save_cloud(inFile, filename, keep_ind = [], features = {}):
-    '''
-    Save a point cloud in laz or las file
+    """Save a point cloud in laz or las file
     
-    :params inFile: Base file object in laspy.
-    :params filename: filename of the output.
-    :params keep_ind: list of index to keep, if this parameter is empty , all 
-                        the index are kept (by default, this parameter is empty)
-    :params features: dictionnary of feature to add. The names of features are
-                        the keys, and the values are a numpy array
+    Args:
+        inFile: Base file object in laspy.
+        filename: filename of the output.
+        keep_ind: list of index to keep, if this parameter is empty , all 
+                  the index are kept (by default, this parameter is empty)
+        features: dictionnary of feature to add. The names of features are
+                  the keys, and the values are a numpy array
                         
-    :Example:
-    
-    >> from laspy.file import File
-    >> import numpy as np
-    >> inFile = File("input.laz", mode = "r")
-    >> ind = np.argwhere(inFile.classification == 2) # we keep the ground
-    >> save_cloud(inFile, "ground.laz", ind)
-    '''
+    Example:
+        >> from laspy.file import File
+        >> import numpy as np
+        >> inFile = File("input.laz", mode = "r")
+        >> ind = np.argwhere(inFile.classification == 2) # we keep the ground
+        >> save_cloud(inFile, "ground.laz", ind)
+    """
     
     # Problem in data, idk why but some labels are equal to 0
     label = inFile.classification
@@ -55,29 +53,22 @@ def save_cloud(inFile, filename, keep_ind = [], features = {}):
     outFile = filename
     
     outCloud = File(outFile, 
-                    mode = "w", 
+                    mode="w", 
                     header=new_header, 
-                    vlrs = inFile.header.vlrs)
-
-
-    for dimension in inFile.point_format:
-        if (dimension == inFile.point_format[13]):
-            break
-        dat = inFile.reader.get_dimension(dimension.name)[keep_ind].reshape(-1)
-        outCloud.writer.set_dimension(dimension.name, dat)
+                    vlrs=inFile.header.vlrs)
 
     # if we have some features to add ...
     if (len(features) > 0):
         for name_feat in features.keys():
             outCloud.define_new_dimension(name = name_feat,
-                                      data_type = 9,
-                                      description = "ntd")
+                                          data_type = 9,
+                                          description = "ntd")
     
         multiscale_features_raw = pd.DataFrame()
         features_raw = []
         name_columns = []
         for name_feat in features.keys():
-            if (name_feat == features.keys()[0]):
+            if (name_feat == list(features)[0]):
                 features_raw = features[name_feat].reshape(-1, 1)
             else:
                 features_raw = np.hstack([features_raw, 
@@ -88,31 +79,43 @@ def save_cloud(inFile, filename, keep_ind = [], features = {}):
         features_raw = pd.DataFrame(features_raw)
         features_raw.columns = np.array(name_columns)
         
-        multiscale_features_raw = pd.concat([multiscale_features_raw, features_raw], axis=1)
+        print(np.shape(multiscale_features_raw))
+        
+        multiscale_features_raw = pd.concat([multiscale_features_raw, 
+                                             features_raw], 
+    axis=1)
         
         for name_feat in features.keys():
-            exec("outCloud." + name_feat + " = multiscale_features_raw.as_matrix([\'" + name_feat + "\']).ravel()")
+            exec("outCloud." 
+                 + name_feat 
+                 + " = multiscale_features_raw.as_matrix([\'" 
+                 + name_feat 
+                 + "\']).ravel()")
+            
+    for dimension in inFile.point_format:
+        dat = inFile.reader.get_dimension(dimension.name)
+        outCloud.writer.set_dimension(dimension.name, dat)
     
     outCloud.close()
     
 
 def extract_value(coord, option='minimum_height'):
-    '''
+    """
     Return the indice of value of the list of coordinates according to the option
     
-    :params coord: XYZ coordinates in a numpy array.
-    :params option: according to the option, the returned value will be the
-                    minimum (or maximum) altitude.
-                    A random option it's possible too.
+    Args:
+        coord: XYZ coordinates in a numpy array.
+        option: according to the option, the returned value will be the
+                minimum (or maximum) altitude.
+                A random option it's possible too.
                     
-    :Example:
-    
-    >> import numpy as np
-    >> coord = np.random.rand(100, 3)
-    >> ind_v = extract_value(coord, 'minimum_height') # ind_v will be the 
-                                                        indice of the lowest 
-                                                        point
-    '''
+    Example:
+        >> import numpy as np
+        >> coord = np.random.rand(100, 3)
+        >> ind_v = extract_value(coord, 'minimum_height') # ind_v will be the 
+        >>                                                # indice of the 
+        >>                                                # lowest point
+    """
     if (option == 'minimum_height'):
         return np.argmin(coord[:, 2])
     elif (option == 'maximum_height'):
@@ -122,23 +125,22 @@ def extract_value(coord, option='minimum_height'):
     
     
 def construct_grid(coord, option='minimum_height', step=2.5):
-    '''
-    Return an array in 2 dimensions where each element is an indice.
+    """Return an array in 2 dimensions where each element is an indice.
     This array correspond at the raster.
     Warning, this function is operational, but tool lika 'lasthin' of LASTools
     are more efficient
     
-    :params coord: XYZ coordinates in a numpy array.
-    :params step: size of each cell. By default, 2.5x2.5 is given
+    Args:
+        coord: XYZ coordinates in a numpy array.
+        step: size of each cell. By default, 2.5x2.5 is given
     
-    :Example:
-    
-    >> import numpy as np
-    >> coord = np.random.rand(10000, 3)
-    >> ind_grid = construct_grid(coord, step=1.0)
-    >> # ind_grid[0] will return a list of indice, representing the indice of 
-    >> # coordinates in the cell #0.
-    '''
+    Example:
+        >> import numpy as np
+        >> coord = np.random.rand(10000, 3)
+        >> ind_grid = construct_grid(coord, step=1.0)
+        >> # ind_grid[0] will return a list of indice, representing the indice of 
+        >> # coordinates in the cell #0.
+    """
     
     x_min = np.min(coord[:, 0])
     y_min = np.min(coord[:, 1])
@@ -147,7 +149,10 @@ def construct_grid(coord, option='minimum_height', step=2.5):
     
     number_of_grid_x = int(np.floor((x_max - x_min) / step))
     number_of_grid_y = int(np.floor((y_max - y_min) / step))
-    print("Size of raster: " + str(number_of_grid_x) + "x" + str(number_of_grid_y))
+    print("Size of raster: " 
+          + str(number_of_grid_x) 
+          + "x" 
+          + str(number_of_grid_y))
     
     list_of_ind = np.ndarray(shape=(number_of_grid_x, number_of_grid_y),
                              dtype=int)
@@ -178,20 +183,19 @@ def construct_grid(coord, option='minimum_height', step=2.5):
 
 
 def extract_feature(inFile, name_feature):
-    '''
-    Extract one feature according the name given in parameters
+    """Extract one feature according the name given in parameters
     
-    :params inFile: Base file object in laspy.
-    :params name_feature: Name of the feature
+    Args:
+        inFile: Base file object in laspy.
+        name_feature: Name of the feature
     
-    :Example:
-    
-    >> from laspy.file import File
-    >> import numpy as np
-    >> inFile = File("input.laz", mode = "r")
-    >> feat = extract_feature(inFile, 'ratio_echo') # ratio echo being a 
-    >>                                              # feature created by us
-    '''
+    Example:
+        >> from laspy.file import File
+        >> import numpy as np
+        >> inFile = File("input.laz", mode = "r")
+        >> feat = extract_feature(inFile, 'ratio_echo') # ratio echo being a 
+        >>                                              # feature created by us
+    """
     label = inFile.classification
 
     # Problème dans les données, certaines labels sont à 0
@@ -235,23 +239,24 @@ def extract_feature(inFile, name_feature):
 
 
 def change_labelisation(inFile, labels_in=[], label_out=1, verbose=False):
-    '''
-    change_labelisation is a function that change the classification if needs.
+    """Change_labelisation is a function that change the classification 
+    if needs.
     
-    :params inFile: Base file object in laspy.
-    :params labels_in: list of labels that have to change.
-    :params label_out: desired label.
-    :params verbose: Controls the verbosity of the function.
+    Args:
+        inFile: Base file object in laspy.
+        labels_in: list of labels that have to change.
+        label_out: desired label.
+        verbose: Controls the verbosity of the function.
     
-    :Example:
-    >> from laspy.file import File
-    >> import numpy as np
-    >> inFile = File("input.laz", mode = "r")
-    >> change_labelisation(inFile, [3,4], 5) # According to the ISPRS notation,
-    >>                                       # this function will put low and
-    >>                                       # medium vegetation label in high
-    >>                                       # vegetation label
-    '''
+    Example:
+        >> from laspy.file import File
+        >> import numpy as np
+        >> inFile = File("input.laz", mode = "r")
+        >> change_labelisation(inFile, [3,4], 5) # According to the ISPRS notation,
+        >>                                       # this function will put low and
+        >>                                       # medium vegetation label in high
+        >>                                       # vegetation label
+    """
     if (verbose == True or verbose > 0):
         print("We change label " + str(labels_in) + " to " + str(label_out))
         
@@ -262,27 +267,27 @@ def change_labelisation(inFile, labels_in=[], label_out=1, verbose=False):
         ind = np.argwhere(label == label_in)
         label[ind] = label_out
         label.reshape(shape_label)
-        inFile.classification = label
+        inFile.set_classification(label)
 
     
     
 
-def load_las_file(name_dir_file):
-    '''
-    Load and return the point cloud. 
+def load_las_file(name_dir_file, mode="r"):
+    """Load and return the point cloud. 
     The value returned is a base file object in laspy.
     
-    :params name_dir_file: filename of the las or laz file
+    Args:
+        name_dir_file: filename of the las or laz file
     
-    :Example:
-    
-    >> from laspy.file import File
-    >> inFile = load_las_file("input.laz")
-    Loading file : input.laz
-    >>
-    '''
+    Example:
+        >> from laspy.file import File
+        >> inFile = load_las_file("input.laz")
+        Loading file : input.laz
+        >>
+    """
     print('Loading file : ' + name_dir_file)
-    inFile = File(name_dir_file, mode = "r")
+    inFile = File(name_dir_file, mode=mode) #Careful, if mode="rw", works only 
+                                            #with las file (no laz unfortunately)
     return inFile
     
 #def main():
