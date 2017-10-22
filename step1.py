@@ -25,12 +25,13 @@ from useful_functions.function_las import save_cloud
 from useful_functions.function_canupo import compute_pca_for_corepoint
 from useful_functions.function_canupo import compute_pca
 from useful_functions.function_canupo import compute_feature_for_corepoint
+from useful_functions.function_figures import plot_simple_plot
 
 import numpy as np
-import scipy.linalg as la
-import pandas as pd
 import copy
-
+import time
+import matplotlib.pyplot as plt
+plt.rcParams['svg.fonttype'] = 'none'
 
 import os
 import sys
@@ -75,11 +76,12 @@ def get_points(inFile):
 def main():
     dir_raster_in = "../../data/rasterized_tiles/"
     dir_in = "../../data/labeled_tiles/"
+    dir_out = "../../data/rasterized_features_tiles_C2C3/"
     
     C3 = True
 
     #scales = [0.25, 0.5, 1, 2, 2.5, 3, 4, 5, 6, 7]
-    scales = [2, 3]
+    scales = [0.25, 0.5, 1, 2, 2.5, 3, 4, 5, 6, 7]
 
     f = open('filename_data.txt', 'r')
     filenames_train_C2 = f.readlines()
@@ -159,10 +161,11 @@ def main():
         
         column_names = np.hstack(['ratio_echo', column_names])
         
-        
+        time_radius_one_cloud = []
         
         for index_radius, radius in enumerate(scales):
             print("Scale: " + str(radius))
+            t0 = time.time()
             for index_point, point in enumerate(points_C2_raster):
                 point_coord = point[0:3]
                 
@@ -264,22 +267,61 @@ def main():
                 else:
                     feat_one_scale = np.vstack([feat_one_scale, feat_one_point])
                     
+            t1 = time.time()
             if index_radius == 0:
                 feat = feat_one_scale
             else:
                 feat = np.hstack([feat, feat_one_scale])
+            
+            time_radius_one_cloud.append(t1-t0)
+            
+            print("Compute feature for scale " 
+                  + str(radius )
+                  + " in " 
+                  + str(t1-t0) 
+                  + " secondes")
+
         features = {}
         
         feat = np.hstack([ratio_echo, feat])
         
-        for i in range(len(column_names)):
-            features[column_names[i]] = feat[:, i]
+        if i == 0:
+            time_radius = time_radius_one_cloud
+        else:
+            time_radius = np.vstack([time_radius, time_radius_one_cloud])
+        
+        for j in range(len(column_names)):
+            features[column_names[j]] = feat[:, j]
             
-        save_cloud(inFile_C2_raster, 'here.laz', keep_ind=[], features=features)
+        save_cloud(inFile_C2_raster,
+                   dir_out + filenames_train_raster_C2[i].replace('.las', '.laz'),
+                   keep_ind=[],
+                   features=features)
+        
+    print(time_radius)
+    mean_time = np.mean(time_radius.transpose(), axis=1)
+    std_time = np.std(time_radius.transpose(), axis=1)
+#    print(mean_time)
+    
+    plt.figure()
+    plt.plot(range(len(mean_time)), mean_time)
+    plt.savefig(dir_out + 'mean_time_radius.png')
+    plt.savefig(dir_out + 'mean_time_radius.svg')
+    plt.close()
+
+    plt.figure()
+    plt.plot(range(len(std_time)), std_time)
+    plt.savefig(dir_out + 'std_time_radius.png')
+    plt.savefig(dir_out + 'std_time_radius.svg')
+    plt.close()
+
+    #list_scales = ["Scale " + str(radius) for radius in scales]
+    #plot_simple_plot(mean_time, list_scales)
+    
     
     return
     
-    
+
 
 if __name__ == "__main__":
     main()
