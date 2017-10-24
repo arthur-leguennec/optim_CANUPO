@@ -29,8 +29,9 @@ from useful_functions.function_canupo import compute_pca
 from useful_functions.function_canupo import compute_feature_for_corepoint
 from useful_functions.function_figures import plot_simple_plot
 
-from multiprocessing import Pool
+from multiprocessing import Pool, Process, Queue
 from itertools import repeat
+from functools import partial
 
 import multiprocessing
 import numpy as np
@@ -146,7 +147,7 @@ def compute_desc(point, radius, coords=[], intensities=[], kdtree=[], C3=False):
                                                        radius=radius, 
                                                        option='mean', 
                                                        verbose=False)
-        feat_tmp = copy.copy(feat_intensity)
+        feat_tmp = np.array(feat_intensity)
         
         feat_intensity = compute_feature_for_corepoint(kdtree=kdtree_C3, 
                                                        point=point_coord, 
@@ -156,7 +157,7 @@ def compute_desc(point, radius, coords=[], intensities=[], kdtree=[], C3=False):
                                                        verbose=False)
         
         feat_one_point = np.hstack([feat_one_point, np.divide(feat_tmp, feat_intensity)])
-    
+
     #############################
     ## compute height features ##
     #############################
@@ -167,7 +168,7 @@ def compute_desc(point, radius, coords=[], intensities=[], kdtree=[], C3=False):
                                                 option='std', 
                                                 verbose=False)
     feat_one_point = np.hstack([feat_one_point, feat_height])
-    
+
     if (C3 == True):
         feat_height = compute_feature_for_corepoint(kdtree=kdtree_C3, 
                                                     point=point_coord, 
@@ -176,24 +177,24 @@ def compute_desc(point, radius, coords=[], intensities=[], kdtree=[], C3=False):
                                                     option='std', 
                                                     verbose=False)
         feat_one_point = np.hstack([feat_one_point, feat_height])
-        
+
         feat_height = compute_feature_for_corepoint(kdtree=kdtree_C2, 
                                                     point=point_coord, 
                                                     feature=coord_C2[:, 2], 
                                                     radius=radius, 
                                                     option='mean', 
                                                     verbose=False)
-        feat_tmp = copy.copy(feat_height)
-        
+        feat_tmp = np.array(feat_height)
+
         feat_height = compute_feature_for_corepoint(kdtree=kdtree_C3, 
                                                     point=point_coord, 
                                                     feature=coord_C3[:, 2], 
                                                     radius=radius, 
                                                     option='mean', 
                                                     verbose=False)
-        
+
         feat_one_point = np.hstack([feat_one_point, np.subtract(feat_tmp, feat_height)])
-        
+
     return feat_one_point
         
 
@@ -201,22 +202,29 @@ def wrapper_compute_desc(args):
     point, radius, coords, feat, kdtree, C3 = args
     return compute_desc(point, radius, coords, feat, kdtree, C3)
 
+def queue_compute_desc(args, index_split, q):
+    point, radius, coords, feat, kdtree, C3 = args
+    feat = compute_desc(point, radius, coords, feat, kdtree, C3)
+    feat = np.reshape(feat, (len(index_split), 10))
+    feat = np.hstack([index_split, feat])
+    q.put(feat)
+
 
 def main():
     dir_raster_in = "../../data/rasterized_tiles/"
     dir_in = "../../data/labeled_tiles/"
     dir_out = "../../data/rasterized_features_tiles_C2C3/"
-    
+
     C3 = True
 
-    #scales = [0.25, 0.5, 1, 2, 2.5, 3, 4, 5, 6, 7]
+#    scales = [0.25, 0.5, 1, 2, 2.5, 3, 4, 5, 6, 7]
     scales = [2.5, 3]
 
     f = open('filename_data.txt', 'r')
     filenames_train_C2 = f.readlines()
     if (C3 == True):
-        filenames_train_C3 = copy.copy(filenames_train_C2)
-    filenames_train_raster_C2 = copy.copy(filenames_train_C2)
+        filenames_train_C3 = list(filenames_train_C2)
+    filenames_train_raster_C2 = list(filenames_train_C2)
     for i in range(len(filenames_train_C2)):
         filenames_train_C2[i] = str(filenames_train_C2[i][0:-1]) #to delete '\n'
         foo = str(filenames_train_C2[i])
@@ -225,14 +233,13 @@ def main():
         filenames_train_raster_C2[i] = foo.replace('.laz', 
                                                    '_raster_2_5_low.las')
     f.close()
-    
-    
+
     f = open('features_C2C3.txt')
     names_features = f.readlines()
     for i in range(len(names_features)):
         names_features[i] = str(names_features[i][0:-1]) #to delete '\n'
     f.close()
-    
+
     for i in range(len(filenames_train_C2)):
         # load laz file (point cloud of C2, C3 and C2 rasterized)
         inFile_C2 = load_las_file(dir_in + filenames_train_C2[i])
@@ -241,10 +248,10 @@ def main():
         inFile_C2_raster = load_las_file(dir_raster_in 
                                          + filenames_train_raster_C2[i],
                                          mode="rw")
-        
+
         # we change some labels
         just_change_label(inFile_C2_raster)
-        
+
         # Retrieve some element (coordinates (x, y, z), intensity, 
         # classification, ...)
         points_C2 = get_points(inFile_C2)
@@ -291,6 +298,15 @@ def main():
         
         time_radius_one_cloud = []
         
+#        number_of_processes = 10
+#        points_C2_raster_split = np.split(points_C2_raster,
+#                                          number_of_processes,
+#                                          axis=0)
+#        index_split = np.split(range(inFile_C2_raster.__len__()), number_of_processes)
+#        
+#        for index_s, points in enumerate(points_C2_raster_split):
+            
+        
         for index_radius, radius in enumerate(scales):
             print("Scale: " + str(radius))
             t0 = time.time()
@@ -304,7 +320,27 @@ def main():
             
                 feat_one_scale = pool.map(wrapper_compute_desc, args)
                 
+                pool.close()
+                
+            feat_one_scale = np.array(feat_one_scale)
+            if C3 == True:
+                feat_one_scale = np.reshape(feat_one_scale, (inFile_C2_raster.__len__(), 10))
+            else:
+                feat_one_scale = np.reshape(feat_one_scale, (inFile_C2_raster.__len__(), 6))
+                
+#            with Pool() as pool:
+#                feat_one_scale = [pool.map(partial(compute_desc, 
+#                                                   radius, 
+#                                                   [coord_C2, coord_C3, coord_C2C3],
+#                                                   [intensity_C2, intensity_C3],
+#                                                   [kdtree_C2, kdtree_C3, kdtree_C2C3]), 
+#                                            points_C2_raster)]
+                
+#            feat_one_scale = np.empty(shape=[inFile_C2_raster.__len__(), 10])  
+#            feat_one_scale[:] = np.NAN
 #            for index_point, point in enumerate(points_C2_raster):
+#                if index_point % 100 == 0:
+#                    print(str(index_point) + "/" + str(inFile_C2_raster.__len__()))
 #                feat_one_point = compute_desc(point,
 #                                              radius=radius,
 #                                              coords=[coord_C2, coord_C3, coord_C2C3],
@@ -319,12 +355,7 @@ def main():
 ##                else:
 ##                    feat_one_scale = np.vstack([feat_one_scale, feat_one_point])
                     
-            feat_one_scale = np.array(feat_one_scale)
-            if C3 == True:
-                feat_one_scale = np.reshape(feat_one_scale, (inFile_C2_raster.__len__(), 10))
-            else:
-                feat_one_scale = np.reshape(feat_one_scale, (inFile_C2_raster.__len__(), 6))
-            print(np.shape(feat_one_scale))
+            
 
             t1 = time.time()
             if index_radius == 0:
@@ -349,8 +380,9 @@ def main():
         feat = np.hstack([ratio_echo, feat])
         
         if i == 0:
-            time_radius = time_radius_one_cloud
+            time_radius = np.array(time_radius_one_cloud)
         else:
+            time_radius_one_cloud = np.array(time_radius_one_cloud)
             time_radius = np.vstack([time_radius, time_radius_one_cloud])
         
         for j in range(len(column_names)):
