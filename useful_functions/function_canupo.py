@@ -199,17 +199,17 @@ def compute_feature_for_corepoint(kdtree,
     # How many points we have in the sphere ?
     nb_pts_radius = len(ind_in_radius)
     
-    loc_feature = copy.copy(feature)
-    loc_feature = loc_feature[ind_in_radius]
+#    loc_feature = np.array(feature)
+#    loc_feature = loc_feature[ind_in_radius]
     
     if (option == 'mean'):
         if (nb_pts_radius >= 3):
-            feat = np.mean(loc_feature, dtype='f')
+            feat = np.mean(feature[ind_in_radius], dtype='f')
         else:
             feat = np.NAN
     elif (option == 'std'):
         if (nb_pts_radius >= 3):
-            feat = np.std(loc_feature, dtype='f')
+            feat = np.std(feature[ind_in_radius], dtype='f')
         else:
             feat = np.NAN
     
