@@ -89,3 +89,29 @@ def plot_feature_importance(feat_imp, column_names, indices=[],
 
     plt.xticks(range(len(feat_imp)), column_names, rotation=90)
     plt.xlim([-1,len(feat_imp)])
+    
+    
+    
+def plot_simple_plot(data_Y, 
+                     labels_X = [], 
+                     title='Title by default'):
+    """Function to plot a simple plot
+    
+    Args:
+        data_Y: data
+        labels_X: name of the label, [] by default
+        title: NTD
+    """    
+    plt.figure()
+    plt.title(title)
+    
+    line = plt.plot(range(len(data_Y)), data_Y)
+    plt.setp(line, xticklabels=[labels_X])
+    plt.show()
+    
+    
+    
+    
+    
+    
+    
