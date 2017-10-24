@@ -82,7 +82,7 @@ def get_points(inFile):
 
 
 def compute_desc(point, radius, coords=[], intensities=[], kdtree=[], C3=False):
-    if C3==True:
+    if C3 == True:
         coord_C2 = coords[0]
         coord_C3 = coords[1]
         coord_C2C3 = coords[2]
@@ -101,99 +101,47 @@ def compute_desc(point, radius, coords=[], intensities=[], kdtree=[], C3=False):
         intensity_C2 = intensities[0]
         intensity_C3 = []
         
-    point_coord = point[0:3]
+    if C3 == True:
+        ind_C2 = kdtree_C2.query_radius(point.reshape(1, -1)[:, 0:3], radius)[0]
+        ind_C3 = kdtree_C3.query_radius(point.reshape(1, -1)[:, 0:3], radius)[0]
+        ind_C2C3 = kdtree_C2C3.query_radius(point.reshape(1, -1)[:, 0:3], radius)[0]
+    else:
+        ind_C2 = kdtree_C2.query_radius(point, radius)
     
     ###########################
     ## compute pca and slope ##
     ###########################
     feat_one_point = []
     if (C3 == True):
-        feat_pca = compute_pca_for_corepoint(kdtree=kdtree_C2C3, 
-                                             point=point_coord, 
-                                             coordinates=coord_C2C3, 
-                                             radius=radius, 
-                                             verbose=False)
+        feat_pca = compute_pca(coord=coord_C2C3[ind_C2C3])
     else:
-        feat_pca = compute_pca_for_corepoint(kdtree=kdtree_C2, 
-                                             point=point_coord, 
-                                             coordinates=coord_C2, 
-                                             radius=radius, 
-                                             verbose=False)
+        feat_pca = compute_pca(coord=coord_C2[ind_C2])
+        
     feat_one_point = feat_pca
     
     ################################
     ## compute intensity features ##
     ################################
-    feat_intensity = compute_feature_for_corepoint(kdtree=kdtree_C2, 
-                                                   point=point_coord, 
-                                                   feature=intensity_C2, 
-                                                   radius=radius, 
-                                                   option='std', 
-                                                   verbose=False)
-    feat_one_point = np.hstack([feat_one_point, feat_intensity])
+    feat_one_point = np.hstack([feat_one_point, np.std(intensity_C2[ind_C2])])
     
     if (C3 == True):
-        feat_intensity = compute_feature_for_corepoint(kdtree=kdtree_C3, 
-                                                       point=point_coord, 
-                                                       feature=intensity_C3, 
-                                                       radius=radius, 
-                                                       option='std', 
-                                                       verbose=False)
-        feat_one_point = np.hstack([feat_one_point, feat_intensity])
+        feat_one_point = np.hstack([feat_one_point, np.std(intensity_C3[ind_C3])])
         
-        feat_intensity = compute_feature_for_corepoint(kdtree=kdtree_C2, 
-                                                       point=point_coord, 
-                                                       feature=intensity_C2, 
-                                                       radius=radius, 
-                                                       option='mean', 
-                                                       verbose=False)
-        feat_tmp = np.array(feat_intensity)
-        
-        feat_intensity = compute_feature_for_corepoint(kdtree=kdtree_C3, 
-                                                       point=point_coord, 
-                                                       feature=intensity_C3, 
-                                                       radius=radius, 
-                                                       option='mean', 
-                                                       verbose=False)
-        
-        feat_one_point = np.hstack([feat_one_point, np.divide(feat_tmp, feat_intensity)])
+        feat_one_point = np.hstack([feat_one_point, 
+                                    np.divide(np.mean(intensity_C2[ind_C2]),
+                                              np.mean(intensity_C3[ind_C3]))])
 
     #############################
     ## compute height features ##
     #############################
-    feat_height = compute_feature_for_corepoint(kdtree=kdtree_C2, 
-                                                point=point_coord, 
-                                                feature=coord_C2[:, 2], 
-                                                radius=radius, 
-                                                option='std', 
-                                                verbose=False)
-    feat_one_point = np.hstack([feat_one_point, feat_height])
-
+    feat_one_point = np.hstack([feat_one_point, np.std(coord_C2[ind_C2, 2])])
+    
     if (C3 == True):
-        feat_height = compute_feature_for_corepoint(kdtree=kdtree_C3, 
-                                                    point=point_coord, 
-                                                    feature=coord_C3[:, 2], 
-                                                    radius=radius, 
-                                                    option='std', 
-                                                    verbose=False)
-        feat_one_point = np.hstack([feat_one_point, feat_height])
-
-        feat_height = compute_feature_for_corepoint(kdtree=kdtree_C2, 
-                                                    point=point_coord, 
-                                                    feature=coord_C2[:, 2], 
-                                                    radius=radius, 
-                                                    option='mean', 
-                                                    verbose=False)
-        feat_tmp = np.array(feat_height)
-
-        feat_height = compute_feature_for_corepoint(kdtree=kdtree_C3, 
-                                                    point=point_coord, 
-                                                    feature=coord_C3[:, 2], 
-                                                    radius=radius, 
-                                                    option='mean', 
-                                                    verbose=False)
-
-        feat_one_point = np.hstack([feat_one_point, np.subtract(feat_tmp, feat_height)])
+        feat_one_point = np.hstack([feat_one_point, np.std(coord_C3[ind_C3, 2])])
+        
+        feat_one_point = np.hstack([feat_one_point, 
+                                    np.subtract(np.mean(coord_C2[ind_C2, 2]),
+                                                np.mean(coord_C3[ind_C3, 2]))])
 
     return feat_one_point
         
@@ -311,44 +259,38 @@ def main():
             print("Scale: " + str(radius))
             t0 = time.time()
                         
-            with Pool() as pool:
-                args = zip(points_C2_raster, repeat(radius),
-                           repeat([coord_C2, coord_C3, coord_C2C3]),
-                           repeat([intensity_C2, intensity_C3]),
-                           repeat([kdtree_C2, kdtree_C3, kdtree_C2C3]),
-                           repeat(C3))
-            
-                feat_one_scale = pool.map(wrapper_compute_desc, args)
-                
-                pool.close()
-                
-            feat_one_scale = np.array(feat_one_scale)
-            if C3 == True:
-                feat_one_scale = np.reshape(feat_one_scale, (inFile_C2_raster.__len__(), 10))
-            else:
-                feat_one_scale = np.reshape(feat_one_scale, (inFile_C2_raster.__len__(), 6))
-                
 #            with Pool() as pool:
-#                feat_one_scale = [pool.map(partial(compute_desc, 
-#                                                   radius, 
-#                                                   [coord_C2, coord_C3, coord_C2C3],
-#                                                   [intensity_C2, intensity_C3],
-#                                                   [kdtree_C2, kdtree_C3, kdtree_C2C3]), 
-#                                            points_C2_raster)]
-                
-#            feat_one_scale = np.empty(shape=[inFile_C2_raster.__len__(), 10])  
-#            feat_one_scale[:] = np.NAN
-#            for index_point, point in enumerate(points_C2_raster):
-#                if index_point % 100 == 0:
-#                    print(str(index_point) + "/" + str(inFile_C2_raster.__len__()))
-#                feat_one_point = compute_desc(point,
-#                                              radius=radius,
-#                                              coords=[coord_C2, coord_C3, coord_C2C3],
-#                                              intensities=[intensity_C2, intensity_C3],
-#                                              kdtree=[kdtree_C2, kdtree_C3, kdtree_C2C3],
-#                                              C3=C3)
+#                args = zip(points_C2_raster, repeat(radius),
+#                           repeat([coord_C2, coord_C3, coord_C2C3]),
+#                           repeat([intensity_C2, intensity_C3]),
+#                           repeat([kdtree_C2, kdtree_C3, kdtree_C2C3]),
+#                           repeat(C3))
+#            
+#                feat_one_scale = pool.map(wrapper_compute_desc, args)
 #                
-#                feat_one_scale[index_point, :] = feat_one_point
+#                pool.close()
+#                
+#            feat_one_scale = np.array(feat_one_scale)
+#            if C3 == True:
+#                feat_one_scale = np.reshape(feat_one_scale, (inFile_C2_raster.__len__(), 10))
+#            else:
+#                feat_one_scale = np.reshape(feat_one_scale, (inFile_C2_raster.__len__(), 6))
+                
+
+                
+            feat_one_scale = np.empty(shape=[inFile_C2_raster.__len__(), 10])  
+            feat_one_scale[:] = np.NAN
+            for index_point, point in enumerate(points_C2_raster):
+                if index_point % 100 == 0:
+                    print(str(index_point) + "/" + str(inFile_C2_raster.__len__()))
+                feat_one_point = compute_desc(point,
+                                              radius=radius,
+                                              coords=[coord_C2, coord_C3, coord_C2C3],
+                                              intensities=[intensity_C2, intensity_C3],
+                                              kdtree=[kdtree_C2, kdtree_C3, kdtree_C2C3],
+                                              C3=C3)
+                
+                feat_one_scale[index_point, :] = feat_one_point
 #                
 ##                if index_point == 0:
 ##                    feat_one_scale = feat_one_point
